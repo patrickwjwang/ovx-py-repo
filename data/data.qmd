@@ -1,5 +1,5 @@
 ---
-title: "Problem Set 1"
+title: "Bachelor Thesist Data"
 author: "Patrick Wang" 
 format:
   html:
@@ -18,7 +18,7 @@ import yfinance as yf
 import os
 import requests
 import csv
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup as bs
 
 # Get the current working directory
 print(os.getcwd())
@@ -56,7 +56,7 @@ def clean_price_data(ticker, start_date, end_date, download=False):
     if download == True:
         cleaned_ticker = ''.join([char for char in ticker if char.isalnum()])
         csv_filename = f"data/{cleaned_ticker.lower()}_data.csv"
-        data.to_csv(csv_filename)
+        data_df.to_csv(csv_filename)
     else: None
 
     # The difference betwen consecutive 'Close' data
@@ -111,12 +111,12 @@ for idx, rows in enumerate(target_td_elements):
     # ticker start with 0
     tickers.append(clean_text) if idx % 2 == 0 else companies.append(clean_text)
     
-# Print the top 105 ticker symbols
+# Save the top 105 ticker symbols into csv file
 top_tickers = tickers[:num_picks]
 with open("data/top_ticker_symbols.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(["Ticker Symbol"])
-    writer.writerows([[ticker] for ticker in top_ticker_symbols])
+    writer.writerows([[ticker] for ticker in top_tickers])
 ```
 
 ### Get top 105 stock returns
@@ -124,7 +124,8 @@ with open("data/top_ticker_symbols.csv", "w", newline="") as csvfile:
 # Create dataframe contain top 105 tickers (not optimized)
 filepath = 'data/top_ticker_symbols.csv'
 top_ticker_df = pd.read_csv(filepath)
-top_ticker_df.shape
+
+## Check: print(top_ticker_df.shape)
 
 individual_df = pd.DataFrame()
 for symbol in top_ticker_df['Ticker Symbol']:
