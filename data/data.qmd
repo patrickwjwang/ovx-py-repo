@@ -16,6 +16,9 @@ This paper investigates the influence of oil price volatility on Taiwan aggregat
 import pandas as pd
 import yfinance as yf
 import os
+import requests
+import csv
+from bs4 import BeautifulSoup
 
 # Get the current working directory
 print(os.getcwd())
@@ -23,24 +26,38 @@ os.chdir('/Users/patrickwang/Documents/ovx-py-repo/')
 print(os.getcwd())
 ```
 
+### Default settings
+```{python}
+start_date = "2010-01-01"
+end_date = "2021-12-31"
+num_picks = 105
+```
+
+
 ### This funciton download and clean yfinance price data
 
 ```{python}
-# input: ticker, start and end date
-# output: dataframe
-def clean_price_data(ticker, start_date, end_date):
+def clean_price_data(ticker, start_date, end_date, download=False):
+    """
+    Clean and process price data for a given ticker and date range.
 
-    # download the data from yf    
-    data = yf.download(ticker, start=start_date, end=end_date)
+    Args:
+        ticker (str): Ticker symbol.
+        start_date (str): Start date in "YYYY-MM-DD" format.
+        end_date (str): End date in "YYYY-MM-DD" format.
+        download (bool, optional): Whether to download and save the data to CSV.
 
+    Returns:
+        pd.DataFrame: Processed price data.
+    """
+    data_df = yf.download(ticker, start=start_date, end=end_date)
+    
     # save the data to csv
-    cleaned_ticker = ''.join([char for char in ticker if char.isalnum()])
-    cleaned_ticker = cleaned_ticker.lower()
-    csv_filename = "data/" + cleaned_ticker + "_data.csv"
-    data.to_csv(csv_filename)
-
-    # load the data to df
-    data_df = pd.read_csv(csv_filename)
+    if download == True:
+        cleaned_ticker = ''.join([char for char in ticker if char.isalnum()])
+        csv_filename = f"data/{cleaned_ticker.lower()}_data.csv"
+        data.to_csv(csv_filename)
+    else: None
 
     # The difference betwen consecutive 'Close' data
     data_df['diff']  = data_df['Close'].diff()
@@ -53,16 +70,10 @@ def clean_price_data(ticker, start_date, end_date):
     return(data_df)
 ```
 
-### Default settings
-```{python}
-start_date = "2010-01-01"
-end_date = "2021-12-31"
-```
-
 ### Clean OVX data
 
 ```{python}
-ovx_df = clean_price_data('^OVX', start_date, end_date)
+ovx_df = clean_price_data('^OVX', start_date, end_date, download=True)
 
 # Create two columns contain positive and negative ovx change
 ovx_df['diff_pos'] = ovx_df['diff'][ovx_df['diff'] > 0]
@@ -78,65 +89,45 @@ ovx_df['diff_neg'] = ovx_df['diff_neg'].fillna(0)
 ```{python}
 twii_df = clean_price_data('^TWII', start_date, end_date)
 fx_df = clean_price_data('USDTWD=X', start_date, end_date)
-twii_df.head()
-fx_df.head()
-```
-
-
-```{python}
-target_date = "2022-05-07"
-
-# Number of top stocks
-num_top_stocks = 105
-
-# Get a list of all stock symbols listed in Taiwan
-taiwan_stocks = yf.download('^TWII', start=target_date, end=target_date)
-
-# Sort the stocks by market value
-sorted_stocks = taiwan_stocks.sort_values(by='MarketCap', ascending=False)
-
-# Get the top N stocks
-top_stocks = sorted_stocks.head(num_top_stocks)
-
-# Print the top stocks' symbols and market values
-print(top_stocks[['Symbol', 'MarketCap']])
-
 ```
 
 ### Find top 105 market cap symbols
 
 ```{python}
-from selenium import webdriver
-from bs4 import BeautifulSoup
-import csv
+# Extract ranked stock symbols from taifex website
+URL = "https://www.taifex.com.tw/cht/9/futuresQADetail"
+response = requests.get(URL)
+html = response.content
 
-# Set up the Selenium WebDriver
-driver = webdriver.Chrome()  # You need to have the Chrome driver executable
-url = "https://tradingeconomics.com/taiwan/stock-market"
-driver.get(url)  # Open the URL using Selenium
-page_source = driver.page_source  # Get the page source after JavaScript execution
-driver.quit()  # Close the Selenium driver
+# Create a BeautifulSoup object to parse the HTML
+soup = bs(html, 'html.parser')
+target_td_elements = soup.find_all('td', {'align': 'right', 'headers': 'name_a'})
 
-# Parse the HTML content using BeautifulSoup
-soup = BeautifulSoup(page_source, "html.parser")
-table = soup.find("table", class_="table")
-
-# Initialize lists to store data
-ticker_symbols = []
-
-# Find all rows in the table except the header row
-rows = table.find_all("tr")[1:]
-
-# Iterate through the rows and extract ticker symbols
-for row in rows:
-    columns = row.find_all("b")
-    ticker_symbol = columns[0].text  # Ticker symbol is in the second column
-    ticker_symbols.append(ticker_symbol)
-
+tickers, companies = [], []
+for idx, rows in enumerate(target_td_elements):
+    # alternate between ticker and company name
+    clean_text = ''.join([char for char in rows.text if char.isalnum()])
+    
+    # ticker start with 0
+    tickers.append(clean_text) if idx % 2 == 0 else companies.append(clean_text)
+    
 # Print the top 105 ticker symbols
-top_ticker_symbols = ticker_symbols[:105]
+top_tickers = tickers[:num_picks]
 with open("data/top_ticker_symbols.csv", "w", newline="") as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(["Ticker Symbol"])
     writer.writerows([[ticker] for ticker in top_ticker_symbols])
+```
+
+### Get top 105 stock returns
+```{python}
+# Create dataframe contain top 105 tickers (not optimized)
+filepath = 'data/top_ticker_symbols.csv'
+top_ticker_df = pd.read_csv(filepath)
+top_ticker_df.shape
+
+individual_df = pd.DataFrame()
+for symbol in top_ticker_df['Ticker Symbol']:
+    symbol_txt = str(symbol) + '.TW'
+    individual_df[symbol] = clean_price_data(symbol_txt, start_date, end_date)['pct_return']
 ```
