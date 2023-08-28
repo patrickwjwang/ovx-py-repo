@@ -1,0 +1,142 @@
+---
+title: "Problem Set 1"
+author: "Patrick Wang" 
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+# Data 
+
+This paper investigates the influence of oil price volatility on Taiwan aggregate and individual stock returns from January 1, 2010, to December 31, 2021, because the Taiwan stock market’s market structure has become more stable since the 2008 financial crisis. In  the  empirical  analysis,  the  daily  data  are  used  because  the  OVX  index  is  a  way  to measure how volatile oil prices are in the short term. All the return data are denoted as daily return percentage.
+
+### Update working directroy and import packages
+```{python}
+import pandas as pd
+import yfinance as yf
+import os
+
+# Get the current working directory
+print(os.getcwd())
+os.chdir('/Users/patrickwang/Documents/ovx-py-repo/')
+print(os.getcwd())
+```
+
+### This funciton download and clean yfinance price data
+
+```{python}
+# input: ticker, start and end date
+# output: dataframe
+def clean_price_data(ticker, start_date, end_date):
+
+    # download the data from yf    
+    data = yf.download(ticker, start=start_date, end=end_date)
+
+    # save the data to csv
+    cleaned_ticker = ''.join([char for char in ticker if char.isalnum()])
+    cleaned_ticker = cleaned_ticker.lower()
+    csv_filename = "data/" + cleaned_ticker + "_data.csv"
+    data.to_csv(csv_filename)
+
+    # load the data to df
+    data_df = pd.read_csv(csv_filename)
+
+    # The difference betwen consecutive 'Close' data
+    data_df['diff']  = data_df['Close'].diff()
+    data_df['pct_return'] = data_df['Close'].pct_change() * 100
+ 
+    # Drop Open, High, Low, Adj Close, Volume
+    columns_to_drop = ['Open', 'High', 'Low', 'Adj Close', 'Volume']
+    data_df = data_df.drop(columns_to_drop, axis=1)
+    
+    return(data_df)
+```
+
+### Default settings
+```{python}
+start_date = "2010-01-01"
+end_date = "2021-12-31"
+```
+
+### Clean OVX data
+
+```{python}
+ovx_df = clean_price_data('^OVX', start_date, end_date)
+
+# Create two columns contain positive and negative ovx change
+ovx_df['diff_pos'] = ovx_df['diff'][ovx_df['diff'] > 0]
+ovx_df['diff_neg'] = ovx_df['diff'][ovx_df['diff'] <= 0]
+
+# Fill positive and negative ovx change NaN with 0 for regression
+ovx_df['diff_pos'] = ovx_df['diff_pos'].fillna(0)
+ovx_df['diff_neg'] = ovx_df['diff_neg'].fillna(0)
+```
+
+### Clean ^TWII and USDTWD=X data
+
+```{python}
+twii_df = clean_price_data('^TWII', start_date, end_date)
+fx_df = clean_price_data('USDTWD=X', start_date, end_date)
+twii_df.head()
+fx_df.head()
+```
+
+
+```{python}
+target_date = "2022-05-07"
+
+# Number of top stocks
+num_top_stocks = 105
+
+# Get a list of all stock symbols listed in Taiwan
+taiwan_stocks = yf.download('^TWII', start=target_date, end=target_date)
+
+# Sort the stocks by market value
+sorted_stocks = taiwan_stocks.sort_values(by='MarketCap', ascending=False)
+
+# Get the top N stocks
+top_stocks = sorted_stocks.head(num_top_stocks)
+
+# Print the top stocks' symbols and market values
+print(top_stocks[['Symbol', 'MarketCap']])
+
+```
+
+### Find top 105 market cap symbols
+
+```{python}
+from selenium import webdriver
+from bs4 import BeautifulSoup
+import csv
+
+# Set up the Selenium WebDriver
+driver = webdriver.Chrome()  # You need to have the Chrome driver executable
+url = "https://tradingeconomics.com/taiwan/stock-market"
+driver.get(url)  # Open the URL using Selenium
+page_source = driver.page_source  # Get the page source after JavaScript execution
+driver.quit()  # Close the Selenium driver
+
+# Parse the HTML content using BeautifulSoup
+soup = BeautifulSoup(page_source, "html.parser")
+table = soup.find("table", class_="table")
+
+# Initialize lists to store data
+ticker_symbols = []
+
+# Find all rows in the table except the header row
+rows = table.find_all("tr")[1:]
+
+# Iterate through the rows and extract ticker symbols
+for row in rows:
+    columns = row.find_all("b")
+    ticker_symbol = columns[0].text  # Ticker symbol is in the second column
+    ticker_symbols.append(ticker_symbol)
+
+# Print the top 105 ticker symbols
+top_ticker_symbols = ticker_symbols[:105]
+with open("data/top_ticker_symbols.csv", "w", newline="") as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerow(["Ticker Symbol"])
+    writer.writerows([[ticker] for ticker in top_ticker_symbols])
+```
