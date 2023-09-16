@@ -2,10 +2,15 @@
 This repository contains Python code and data analysis scripts investigating the relationship between the Crude Oil Volatility Index (OVX) and the performance of the Taiwanese stock market. This research is aimed at providing insights into the impact of oil price volatility on Taiwan's aggregate stock returns, the risk premiums associated with oil volatility, and the market's sectoral exposure to oil volatility.
 
 ## Project Structure
+
 `data/`: Contains raw and processed data files
+
 `top_ticker_symbols.csv`: List of top 105 Taiwanese stock tickers by market cap
+
 `plots/`: Contains generated plots and figures
+
 `ovx_stat.py`: Main analysis script, including statistical tests and CAPM model adjustment
+
 `ovx_data.py`: Data gathering and cleaning script
 
 ## Prerequisites
