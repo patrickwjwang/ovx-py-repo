@@ -5,10 +5,10 @@ date: "2023-09-07"
 format:
   pdf:
     documentclass: article
-    margin-left: 0.75in
-    margin-right: 0.75in
-    margin-top: 0.75in
-    margin-bottom: 0.75in
+    margin-left: 1in
+    margin-right: 1in
+    margin-top: 1in
+    margin-bottom: 1in
     toc: true
   html:
     theme: cosmo
@@ -20,192 +20,103 @@ execute:
   freeze: auto
 ---
 
-# 1. Load Data 
+# Abstract
+
+Volatility in the oil market has historically been a strong predictor for the movement of the stock market. This paper investigates the relationship between oil price volatility risk and the performance of the Taiwanese stock market. As a proxy for oil price uncertainty, the crude oil volatility index (OVX) is used, as it can estimate the projected variation of crude oil prices up to two option expiry dates that span a 30-day period of time. The purpose of this paper is to determine if the OVX has an impact on Taiwan’s aggregate stock return and, if so, whether or not this effect is different for positive and negative OVX movements, respectively. Following that, it will be determined whether there is a statistically significant difference between the average return of stocks with little and high exposure to oil volatility. Third, we will test if oil volatility carries a significant risk premium by adding OVX factor into CAPM model. Finally, this paper will also analyze exposure to oil price volatility across sectors by segmenting companies trading on the Taiwan Stock Exchange.
+
+# 1. Introduction
+
+Global  oil  prices  have  responded  to  geopolitical  and  other  events  in  the  past. Examples include the Gulf War in 1990, the Asian economic crisis in 1997, the global financial crisis in 2007-2008, and the COVID-19 pandemic in 2020. Oil prices have also become more volatile since the establishment of the Organization of Petroleum Exporting Countries (OPEC) in the 1960s, as OPEC has demonstrated its ability to manipulate prices for  political  reasons.  Following  up  on  this  observation,  we  intend  to  look  into  the relationship between oil price volatility and the stock market. And if the stock market is indeed affected by oil price volatility, how much has this uncertainty been priced into the stock market.
+
+The  study  of  oil  price  change  has  been  a  popular  topic,  and  both  upward  and downward  movements  appear  to  both  get  considerable  mention.  The  majority  of  the studies focus on what drives oil price, and how oil price shock affects stock market as well as the real economy. While the results of these studies vary, most of them imply that there is some relationship between the oil price shock and the stock market return. When attempting  to  explain  this  effect,  some  believe  that  the  movement  of  the  oil  price  will have  an  effect  on  the  cost  of  doing  business,  whilst  others  may  claim  that  the  modern economy is too complex to be forecast by a single component. In this paper, however, we focus on the linkage between oil price uncertainty and stock market movement rather than how oil price will affect stock price. That is to say, we look into the risk of oil price itself.
+
+To investigate oil price volatility, it requires the use of a proxy for oil price volatility in order to carry out the analysis. The use of historical data and realized price uncertainty is used in some studies. The fact remains that these measures are based on historical price data, which cannot be relied upon to accurately reflect current information and market sentiment  regarding  future  oil  price  movement.  In  order  to  accurately  reflect  current market information, option prices and implied volatility are the best approaches to take. Hence, the Chicago Board Options Exchange (CBOE) compiled the crude oil volatility index (OVX), and according to CBOE website:
+
+The Cboe Crude Oil ETF Volatility Index (OVX) is an estimate of the expected 30-day volatility of crude oil as priced by the United States Oil Fund (USO). Like the Cboe  VIX  Index,  OVX  is  calculated  by  interpolating  between  two  time-weighted sums of option mid-quote values - in this case, options on the USO ETF. The two sums essentially represent the expected variance of the price of crude oil up to two option  expiration  dates  that  bracket  a  30-day  period  of  time.  OVX  is  obtained  by annualizing the interpolated value, taking its square root and expressing the result in 
+percentage points. (source: https://www.cboe.com/us/indices/dashboard/ovx/)
+
+As we can see, CBOE apply the volatility index methodology to options on the United States oil fund in order to measure the risk of oil price movement. Therefore, we utilize this direct measure of the oil price uncertainty rather than calculating volatility based on historical data.
+
+The impact of oil price volatility on the Taiwanese stock market is the main focus of this  paper.  There  are  currently few research that analyze the relationships between oil price uncertainty and the stock market through the lens of the implied volatility index, and little study that focus on the influence of oil price volatility on the Taiwanese stock market. Nonetheless, because the Taiwanese stock market possesses characteristics of both developing and developed  countries, the outcome may differ significantly from previous research that have primarily focused  on  the  US  stock  market or the Chinese stock market. As a result, it is crucial to expand research on the oil and Taiwanese stock linkages from the standpoint of price movement uncertainty.
+
+# 2. Research Data
+
+## 2.1 Download and clean price data
 
 This paper investigates the influence of oil price volatility on Taiwan aggregate and individual stock returns from January 1, 2010, to December 31, 2021, because the Taiwan stock market’s market structure has become more stable since the 2008 financial crisis. In  the  empirical  analysis,  the  daily  data  are  used  because  the  OVX  index  is  a  way  to measure how volatile oil prices are in the short term. All the return data are denoted as daily return percentage.
 
-## 1.1 Packages and default settings
+**Function to Scrape data**
 
 ```{python}
-import pandas as pd
-import yfinance as yf
-import os
-import requests
-import csv
-from bs4 import BeautifulSoup as bs
-import matplotlib.pyplot as plt
-import statsmodels.api as sm
-
-
-# Get the current working directory
-print(os.getcwd())
-os.chdir('/Users/patrickwang/Documents/ovx-py-repo/')
-print(os.getcwd())
-
-start_date = "2010-01-01"
-end_date = "2021-12-31"
-num_picks = 105
-
-```
-
-## 1.2 Download and clean  price data
-
-```{python}
-def clean_price_data(ticker, start_date, end_date, download=False):
-    """
-    Clean and process price data for a given ticker and date range.
-
-    Args:
-        ticker (str): Ticker symbol.
-        start_date (str): Start date in "YYYY-MM-DD" format.
-        end_date (str): End date in "YYYY-MM-DD" format.
-        download (bool, optional): Whether to download and save the data to CSV.
-
-    Returns:
-        pd.DataFrame: Processed price data.
-    """
-    data_df = yf.download(ticker, start=start_date, end=end_date)
-    
-    # save the data to csv
-    if download == True:
-        cleaned_ticker = ''.join([char for char in ticker if char.isalnum()])
-        csv_filename = f"data/{cleaned_ticker.lower()}_data.csv"
-        data_df.to_csv(csv_filename)
-    else: None
-
-    # The difference betwen consecutive 'Close' data
-    data_df['diff']  = data_df['Close'].diff()
-    data_df['pct_return'] = data_df['Close'].pct_change() * 100
- 
-    # Drop Open, High, Low, Adj Close, Volume
-    columns_to_drop = ['Open', 'High', 'Low', 'Adj Close', 'Volume']
-    data_df = data_df.drop(columns_to_drop, axis=1)
-    
-    return(data_df)
-
-```
-
-### 1.2.1 Clean OVX data
-
-```{python}
-ovx_df = clean_price_data('^OVX', start_date, end_date, download=True)
-
-# Create two columns contain positive and negative ovx change
-ovx_df['diff_pos'] = ovx_df['diff'][ovx_df['diff'] > 0]
-ovx_df['diff_neg'] = ovx_df['diff'][ovx_df['diff'] <= 0]
-
-# Fill positive and negative ovx change NaN with 0 for regression
-ovx_df['diff_pos'] = ovx_df['diff_pos'].fillna(0)
-ovx_df['diff_neg'] = ovx_df['diff_neg'].fillna(0)
-
-```
-
-### 1.2.2 Clean ^TWII ,USDTWD=X and ^TNX data
-
-```{python}
-# Calculate market premium if have time !!!
-twii_df = clean_price_data('^TWII', start_date, end_date)
-fx_df = clean_price_data('USDTWD=X', start_date, end_date)
-int_df = clean_price_data('^TNX', start_date, end_date)
-
-```
-
-### 1.2.3 Find top 105 market cap symbols
-
-```{python}
-# Extract ranked stock symbols from taifex website
-URL = "https://www.taifex.com.tw/cht/9/futuresQADetail"
-response = requests.get(URL)
-html = response.content
-
-# Create a BeautifulSoup object to parse the HTML
-soup = bs(html, 'html.parser')
-target_td_elements = soup.find_all('td', {'align': 'right', 'headers': 'name_a'})
-
-tickers, companies = [], []
-for idx, rows in enumerate(target_td_elements):
-    # alternate between ticker and company name
-    clean_text = ''.join([char for char in rows.text if char.isalnum()])
-    
-    # ticker start with 0
-    tickers.append(clean_text) if idx % 2 == 0 else companies.append(clean_text)
-    
-# Save the top 105 ticker symbols into csv file
-top_tickers = tickers[:num_picks]
-with open("data/top_ticker_symbols.csv", "w", newline="") as csvfile:
-    writer = csv.writer(csvfile)
-    writer.writerow(["Ticker Symbol"])
-    writer.writerows([[ticker] for ticker in top_tickers])
-
-```
-
-### 1.2.4 Get top 105 stock returns
-
-```{python}
-#| warning: false
+#| echo: false
 #| output: false
+import ovx_data
+import inspect
+```
 
-# Create dataframe contain top 105 tickers (not optimized)
-filepath = 'data/top_ticker_symbols.csv'
-top_ticker_df = pd.read_csv(filepath)
+```{python}
+#| echo: false
+print(inspect.getsource(ovx_data.clean_price_data))
+```
 
-## Check: print(top_ticker_df.shape)
+**Clean OVX data**
 
-individual_df = pd.DataFrame()
-for symbol in top_ticker_df['Ticker Symbol']:
-    symbol_txt = str(symbol) + '.TW'
-    individual_df[symbol] = clean_price_data(symbol_txt, start_date, end_date)['pct_return']
+```{python}
+#| echo: false
+from ovx_data import ovx_df
+print(ovx_df.head())
 
 ```
 
-## 1.3 Data Check
+**Clean ^TWII ,USDTWD=X and ^TNX data**
 
 ```{python}
-print(ovx_df.head())
+#| echo: false
+from ovx_data import twii_df, fx_df
 print(twii_df.head())
 print(fx_df.head())
-print(int_df.head())
+
+```
+
+**Find top 105 market cap symbols**
+
+For individual stock, we use individual stock data traded on Taiwan Stock exchange (TWSE). We chose 105 stocks depending on their market value on May 7, 2022. The 105 stocks we chose represented 78% of the total market value of all stocks trading on the TWSE, which is more than enough to reflect the broader market. Furthermore, because smaller market value stocks have lower trade value, their prices can be easily manipulated. As a result, selecting stocks with a low market value may not be relevant for our study. For the sake of simplicity, the stocks we select do not change over time; that is, even if market value has changed in the past, we did not record the change. Nonetheless, as of January 1, 2010, the 105 stocks we chose accounted for 68 percent of total market value, indicating that the TWSE structure has not evolved significantly over the preceding decade.
+
+```{python}
+#| echo: false
+from ovx_data import top_tickers
+print(top_tickers[:9])
+
+```
+
+**Get top 105 stock returns**
+
+```{python}
+#| echo: false
+from ovx_data import individual_df
 print(individual_df.head())
+
 ```
 
-# 2. Data Visualization
+## 2.2 Data Visualization
 
 ```{python}
-def plot_and_save(df, label, filename):
-    plt.figure().gca().tick_params(axis='both', which='both', length=0.02)
-    plt.plot(df.index, df['Close'], 'k', lw=1.25, label=label)
-    plt.xticks(rotation=45, fontsize=8)  # Changed fontsize to 8
-    plt.yticks(fontsize=8)  # Changed fontsize to 8
-    plt.legend(loc='upper right', prop={'size': 10})
-    plt.tight_layout()
-    plt.savefig(filename)
-    plt.close()
-```
-
-## 2.1 Plot CBOE Crude Oil Volatility Index
-
-```{python}
-plot_and_save(ovx_df, 'CBOE Crude Oil Volatility Index', 'plots/ovx.png')
+#| echo: false
+import ovx_data
+import inspect
+print(inspect.getsource(ovx_data.plot_and_save))
 
 ```
+
+For oil price volatility, we use CBOE Crude Oil Volatility Index (OVX) as a proxy for oil volatility, and the data collected from the Chicago Board Options Exchange’s website. The graph of OVX data during January 1, 2010, to December  31, 2021 is shown. OVX is an estimate of the expected 30-day volatility of crude oil as priced by the United States Oil Fund (USO). The market portfolio is represented by TSEC weighted index.
 
 !["CBOE Crude Oil Volatility Index"](plots/ovx.png)
 
-## 2.2 Plot TSEC weighted index
-
-```{python}
-plot_and_save(twii_df, 'TSEC weighted index', 'plots/twii.png')
-
-```
+**Plot TSEC weighted index**
 
 !["TSEC weighted index"](plots/twii.png)
 
-## 2.3 Plot Interest Rate
-
-```{python}
-plot_and_save(int_df, 'US 10-Year Treasury Bond Yield', 'plots/int_rate.png')
-
-```
+**Plot Interest Rate**
 
 !["US 10-Year Treasury Bond Yield"](plots/int_rate.png)
 
@@ -220,26 +131,9 @@ $R_{\textit{prem},t}^{m} = \beta_{0} + \beta_{1}\textit{FX}_{t} + \beta_{2}R_{\t
 The dependent variable $R_{\textit{prem},t}^{m} = R_{m,t}-R_{f,t}$ represents the daily Taiwan aggregate stock market excess return (pending), $\textit{FX}_t$ represents the foreign exchange rate between the New Taiwan Dollar and the U.S. Dollar, and $\Delta\textit{OVX}_t$ represents the OVX index movement between time t-1 and time t. To reflect earlier market condition and momentum, the lagged market premium is added. Moreover, because international investments have a big influence on Taiwan’s stock market, the foreign exchange rate between the New Taiwan Dollar and the US Dollar is also included.
 
 ```{python}
-# Align the dataframes by date index and drop rows with missing data
-merged_df = pd.concat([twii_df['pct_return'], fx_df['Close']], axis=1, keys=['mkt_rt', 'fx'])
-merged_df.dropna(inplace=True)
-
-# Create lagged variable for twii_df['pct_return']
-merged_df['lag_mkt_rt'] = merged_df['mkt_rt'].shift(1)
-
-# Drop any rows with NaN values (due to lagged variables or otherwise)
-merged_df.dropna(inplace=True)
-
-# Separate independent and dependent variables
-X = merged_df[['fx', 'lag_mkt_rt']]
-y = merged_df['mkt_rt']
-
-# Add a constant (intercept) to the independent variables
-X = sm.add_constant(X)
-
-# Run the regression
-model = sm.OLS(y, X)
-result0 = model.fit()
+#| echo: false
+import statsmodels.api as sm
+from ovx_stat import result0
 print(result0.summary())
 
 ```
@@ -253,18 +147,9 @@ We first assume that the impact of OVX on Taiwan stock returns is symmetric:
 $R_{\textit{prem},t}^{m} = \beta_{0} + \beta_{1}\textit{FX}_{t} + \beta_{2}R_{\textit{prem},t-1}^{m} + \beta_{3}\Delta\textit{OVX}_{t} + \varepsilon_t$
 
 ```{python}
-merged_df = pd.concat([twii_df['pct_return'], fx_df['Close'], ovx_df['diff']], axis=1, keys=['mkt_rt', 'fx', 'ovx_diff'])
-merged_df.dropna(inplace=True)
-
-merged_df['lag_mkt_rt'] = merged_df['mkt_rt'].shift(1)
-merged_df.dropna(inplace=True)
-
-X = merged_df[['fx', 'lag_mkt_rt', 'ovx_diff']]
-X = sm.add_constant(X)
-y = merged_df['mkt_rt']
-
-model = sm.OLS(y, X)
-result1 = model.fit()
+#| echo: false
+import statsmodels.api as sm
+from ovx_stat import result1
 print(result1.summary())
 
 ```
@@ -280,19 +165,9 @@ $R_{\textit{prem},t}^{m}  = \beta_{0} + \beta_{1}\textit{FX}_{t} + \beta_{2}R_{\
 $\Delta\textit{OVX}_{t}^{+} = \textit{max}(\Delta\textit{OVX}_t, 0)$ and $\Delta\textit{OVX}_{t}^{-} = \textit{min}(\Delta\textit{OVX}_t, 0)$ denote positive and negative OVX shock, respectively. The setting in the regression model (2) is similar to Xiao et. al. (2018), who compare the asymmetric impacts of oil price uncertainty on Chinese stock returns.
 
 ```{python}
-merged_df = pd.concat([twii_df['pct_return'], fx_df['Close'], ovx_df['diff_pos'], ovx_df['diff_neg'], ], 
-                        axis=1, keys=['mkt_rt', 'fx', 'ovx_pos_diff', 'ovx_neg_diff'])
-merged_df.dropna(inplace=True)
-
-merged_df['lag_mkt_rt'] = merged_df['mkt_rt'].shift(1)
-merged_df.dropna(inplace=True)
-
-X = merged_df[['fx', 'lag_mkt_rt', 'ovx_pos_diff', 'ovx_neg_diff']]
-X = sm.add_constant(X)
-y = merged_df['mkt_rt']
-
-model = sm.OLS(y, X)
-result2 = model.fit()
+#| echo: false
+import statsmodels.api as sm
+from ovx_stat import result2
 print(result2.summary())
 
 ```
@@ -303,6 +178,52 @@ We can observe  that both positive and negative movement of the OVX have a negat
 
 ## 4.1 Post-ranking quartly Jensen’s alpha
 
+It will next be determined whether there is a statistically significant difference between the average return and volatility of stocks with little and high exposure to oil volatility. As a model for sorting each stock, we utilize the following equation as a starting point. At the end of each quarter, we run regression for each stock daily excess return on market excess return and OVX during the quarter
+
+$R_{\textit{prem},t}^{i} = \beta^{i}_{0} + \beta^{i}_{m}R_{\textit{prem},t}^{m} + \beta_{\textit{ovx}}^{i}\textit{OVX}_{t} + \varepsilon_t$
+
+where $R_{\textit{prem},t}^{i}$ is the daily excess return on each stock $i$. Our regression model makes use of returns on the 105 highest-valued stocks traded on the Taiwan Stock Exchange (TWSE). Following the completion of the time series regressions in the above equation on each stock, we divide the stocks into terciles depending on the value of $\beta_{\textit{ovx}}^{i}$, with the bottom tercile having the lowest beta and the top tercile having the highest beta. This technique is repeated by moving the beta estimation window forward one quarter at a time, starting at the beginning of the procedure.
+
+At the end of each quarter, we will utilize the sorted terciles of stocks to build three equally-weighted portfolios. Then we will look at the difference in average return between the top and bottom tercile of the portfolio. After that, we can run the following capital asset pricing model in the equation below using the daily returns on the three post-ranking portfolios.
+
+$R_{\textit{prem},t}^{p} = \alpha^{p} + \beta^{p}_{m}R_{\textit{prem},t}^{m} + \varepsilon_t$
+
+The outcome of this equation yields post-ranking quartly Jensen's alpha, which is daily alpha multiplied by 63. We may test the null hypothesis of $\alpha = 0$ against $\alpha \neq 0$ using estimated quartly Jensen's alpha in the sample period. 
+
+```{python}
+#| echo: false
+import statsmodels.api as sm
+from ovx_stat import alpha_result_df
+print(alpha_result_df)
+
+```
+
+For the influence of OVX movement on individual stock return, we first sort the stocks depending on the scale of OVX impact. The stocks are classified into terciles in each quarter, with the top tercile having higher $\beta_{\text{ovx}}$ and the bottom tercile having lower $\beta_{\text{ovx}}$. Following that, we build three equally weighted portfolios and run the regression using equation:
+
+Because our sample period lasted 11 years, or 2840 trading days, and each quarter has about 63 trading days, we can divide 2840 by 63 to get 45 sub-periods. According to the findings, the maximum level of alpha is achieved by the top tercile, while the lowest level of alpha is achieved by the middle tercile. If an investor builds the portfolio on a quarterly basis by buying stocks that fall within the top tercile and shorting stocks that fall within the lowest tercile, then there would be a premium of 0.016 % every day, which would be equivalent to around 4.18 % per year. As a result, our finding demonstrates that stocks with a greater risk of being adversely affected by changes in the price of oil do, in fact, carry a positive premium.
+
 ## 4.2 Impact on individual stock return
 
-## 4.3
+After testing excess return for each stock, we will find the price of oil price volatility using Fama-Macbeth regression procedure. In the previous stage, we derive the estimation of the market beta coefficient and OVX beta coefficient using equation $R_{\textit{prem},t}^{i} = \beta^{i}_{0} + \beta^{i}_{m}R_{\textit{prem},t}^{m} + \beta_{\textit{ovx}}^{i}\textit{OVX}_{t} + \varepsilon_t$ to run regression on a quarterly basis. In this stage, however, we would run the regression for each stock on the entire period to get $\{ \hat{\beta}_{m}^{1}, \, \hat{\beta}_{m}^{2}, \, ..., \, \hat{\beta}_{m}^{105}\}$ and $\{ \hat{\beta}_{\text{ovx}}^{1}, \, \hat{\beta}_{\text{ovx}}^{2}, \, ..., \, \hat{\beta}_{\text{ovx}}^{105}\}$ . After calculating the estimate betas from the adjusted time-series regression model, we will then move on to determine the price of oil price volatility. In stage two, we run the following regression:
+
+$R_{\textit{prem}} = \lambda_0 + \lambda_{m}\hat{\beta}_{m} + \lambda_{\text{ovx}}\hat{\beta}_{\text{ovx}} + \varepsilon$
+
+where $R_{\textit{prem}}$ is the excess return for each individual stock during the entire sample period. If the risk premium associated with oil price volatility (OVX) is significant, then the risk factor connected with oil price volatility (OVX) is priced in the Taiwan stock market.
+
+```{python}
+#| echo: false
+import statsmodels.api as sm
+from ovx_stat import lm_price
+print(lm_price.summary())
+
+```
+
+As we can see, the estimated coefficients are relatively high because they are based on the return on the stock over the entire sample period. Although oil price volatility carries a significant risk premium, which is approximately 4.18% per year, this premium is not significantly priced during the sample period, as we can see from the estimated value and standard error of $\lambda_{\text{ovx}}$. However, despite the fact that the result may not be statistically significant, the result does indeed show that OVX carries a negative price effect to individual stock return. This is consistent with the results obtained from the earlier models.
+
+# 5. Summary
+
+Volatility in the oil market has historically been a strong predictor of stock market movement. In this paper, we look at the relationship between oil volatility risk and Taiwanese stock market performance, and we use the crude oil volatility index (OVX) as a proxy for oil price uncertainty. The goal of this paper is to see if the OVX has an effect on Taiwan's stock return and, if the stock market is affected by oil price volatility, how much of that uncertainty has been priced into the stock market.
+
+First, this project investigates whether the OVX has an effect on Taiwan's aggregate stock return and, if so, whether this effect is different for positive and negative OVX movements. We discovered in the symmetric model that higher levels of uncertainty in the oil market are associated with lower levels of average stock returns in Taiwan. On the other hand, the asymmetric model shows that both positive and negative OVX movement have a negative impact on aggregate stock return. However, a positive change in oil price uncertainty has a greater negative impact on aggregate stock return than a negative change, which is likely because oil price volatility has a negative impact on corporate investments in the real economy.
+
+Second, we investigate whether there is a statistically significant difference between the average return of individual stocks with little and high exposure to oil volatility. By dividing the stocks into terciles depending on the scale of OVX impact, we found that stocks with a greater risk of being adversely affected by changes in the price of oil do, in fact, carry a positive premium. Nevertheless, using Fama-Macbeth regression technique, we found that the premium for OVX is not significantly priced during the sample period.
